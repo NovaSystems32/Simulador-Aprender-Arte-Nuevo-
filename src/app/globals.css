@@ -1,0 +1,169 @@
+@import "tailwindcss";
+
+:root {
+  /* Identidad institucional Arte Nuevo: lila + amarillo + gris.
+     El lila (~272° de tono) se extrajo por muestreo de píxeles directamente
+     de public/images/logo-arte-nuevo.png (lila dominante del isotipo ≈
+     #8048A0). El amarillo es el complementario institucional (no aparece en
+     el isotipo, elegido para contraste WCAG AA con texto blanco en botones:
+     ≥4.5:1 en los tonos 600/700). El gris es la tercera paleta institucional
+     pedida explícitamente, y reemplaza los grises sueltos que antes vivían
+     sólo como fondo/texto/borde. */
+  --color-lila-800: #5b21b6;
+  --color-lila-700: #6d28d9;
+  --color-lila-600: #7c3aed;
+  --color-lila-100: #ede9fe;
+  --color-lila-50: #f5f3ff;
+
+  --color-amarillo-700: #92400e;
+  --color-amarillo-600: #b45309;
+  --color-amarillo-500: #d97706;
+  --color-amarillo-100: #fef3c7;
+  --color-amarillo-50: #fffbeb;
+
+  --color-gris-900: #1e293b;
+  --color-gris-500: #64748b;
+  --color-gris-200: #e2e8f0;
+  --color-gris-50: #f8fafc;
+
+  --color-blanco: #ffffff;
+  --color-fondo: var(--color-gris-50);
+  --color-texto: var(--color-gris-900);
+  --color-texto-secundario: var(--color-gris-500);
+  --color-borde: var(--color-gris-200);
+
+  --color-exito: #27865b;
+  --color-exito-50: #eaf6f0;
+  --color-advertencia: #b87508;
+  --color-advertencia-50: #fbf1e2;
+  --color-error: #c84d5a;
+  --color-error-50: #fbecee;
+
+  --background: var(--color-fondo);
+  --foreground: var(--color-texto);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-nunito-sans);
+  --font-mono: var(--font-geist-mono);
+
+  --color-lila-800: var(--color-lila-800);
+  --color-lila-700: var(--color-lila-700);
+  --color-lila-600: var(--color-lila-600);
+  --color-lila-100: var(--color-lila-100);
+  --color-lila-50: var(--color-lila-50);
+
+  --color-amarillo-700: var(--color-amarillo-700);
+  --color-amarillo-600: var(--color-amarillo-600);
+  --color-amarillo-500: var(--color-amarillo-500);
+  --color-amarillo-100: var(--color-amarillo-100);
+  --color-amarillo-50: var(--color-amarillo-50);
+
+  --color-gris-900: var(--color-gris-900);
+  --color-gris-500: var(--color-gris-500);
+  --color-gris-200: var(--color-gris-200);
+  --color-gris-50: var(--color-gris-50);
+
+  --color-blanco: var(--color-blanco);
+  --color-fondo: var(--color-fondo);
+  --color-texto: var(--color-texto);
+  --color-texto-secundario: var(--color-texto-secundario);
+  --color-borde: var(--color-borde);
+
+  --color-exito: var(--color-exito);
+  --color-exito-50: var(--color-exito-50);
+  --color-advertencia: var(--color-advertencia);
+  --color-advertencia-50: var(--color-advertencia-50);
+  --color-error: var(--color-error);
+  --color-error-50: var(--color-error-50);
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans), Arial, Helvetica, sans-serif;
+}
+
+/* Foco de teclado visible en toda la app (accesibilidad) */
+:focus-visible {
+  outline: 3px solid var(--color-lila-600);
+  outline-offset: 2px;
+}
+
+.katex {
+  font-size: 1.05em;
+}
+
+@layer components {
+  .campo-texto {
+    @apply w-full rounded-lg border border-borde px-3 py-2 text-base text-texto transition-colors focus-visible:border-lila-600;
+  }
+  .campo-select {
+    @apply w-full rounded-lg border border-borde bg-blanco px-3 py-2 text-base text-texto transition-colors focus-visible:border-lila-600;
+  }
+
+  /* Botones: variantes con estados normal/hover/focus/presionado/deshabilitado/cargando.
+     Nota: Tailwind v4 no permite @apply de una clase propia (ej. "btn-base") dentro de otra,
+     así que las utilidades compartidas se repiten en cada variante.
+     Primario = lila institucional (acción principal). Secundario = amarillo institucional
+     usado con moderación (acción secundaria, nunca en superficies grandes). Peligroso
+     usa el amarillo funcional de error (--color-error), distinto del amarillo institucional, para
+     que una acción destructiva nunca se confunda con un simple acento de marca. */
+  .btn-primario {
+    @apply inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold transition-colors duration-150 disabled:cursor-not-allowed disabled:opacity-50 aria-busy:cursor-wait aria-busy:opacity-75 bg-lila-600 text-white hover:bg-lila-700 active:bg-lila-800;
+  }
+  .btn-secundario {
+    @apply inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold transition-colors duration-150 disabled:cursor-not-allowed disabled:opacity-50 aria-busy:cursor-wait aria-busy:opacity-75 bg-amarillo-500 text-white hover:bg-amarillo-600 active:bg-amarillo-600;
+  }
+  .btn-neutro {
+    @apply inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold transition-colors duration-150 disabled:cursor-not-allowed disabled:opacity-50 aria-busy:cursor-wait aria-busy:opacity-75 border border-lila-600 bg-blanco text-lila-600 hover:bg-lila-50 active:bg-lila-100;
+  }
+  .btn-peligroso {
+    @apply inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold transition-colors duration-150 disabled:cursor-not-allowed disabled:opacity-50 aria-busy:cursor-wait aria-busy:opacity-75 bg-error text-white hover:opacity-90 active:opacity-100;
+  }
+
+  .tarjeta {
+    @apply rounded-2xl border border-borde bg-blanco p-5 shadow-sm;
+  }
+
+  .insignia-lila {
+    @apply inline-flex items-center gap-1 rounded-full bg-lila-100 px-2.5 py-1 text-xs font-semibold text-lila-700;
+  }
+  .insignia-amarillo {
+    @apply inline-flex items-center gap-1 rounded-full bg-amarillo-100 px-2.5 py-1 text-xs font-semibold text-amarillo-700;
+  }
+
+  .alerta-exito {
+    @apply rounded-lg border border-exito/30 bg-exito-50 px-3 py-2 text-sm text-exito;
+  }
+  .alerta-advertencia {
+    @apply rounded-lg border border-advertencia/30 bg-advertencia-50 px-3 py-2 text-sm text-advertencia;
+  }
+  .alerta-error {
+    @apply rounded-lg border border-error/30 bg-error-50 px-3 py-2 text-sm text-error;
+  }
+}
+
+/* El editor de ecuaciones es siempre visual: se oculta el menú propio de
+   MathLive (incluye ítems como "Copy as LaTeX" o "LaTeX source" que
+   expondrían código que el docente no tiene por qué ver ni conocer). El
+   teclado matemático en pantalla (otro ícono del campo) sí queda visible: es
+   útil en celular/tablet y no muestra código. */
+.editor-ecuaciones-campo::part(menu-toggle) {
+  display: none;
+}
+
+@media print {
+  .no-imprimir {
+    display: none !important;
+  }
+  body {
+    background: white;
+  }
+  .imprimible {
+    box-shadow: none !important;
+    border: none !important;
+  }
+}
