@@ -402,7 +402,7 @@ alter table auditoria_admin enable row level security;
 -- scripts/crear-primer-admin.mjs) necesita poder saltear RLS para el alta
 -- del primer administrador (no puede existir todavía una sesión "admin"
 -- que la política exija) y para tareas de mantenimiento puntuales. El rol
--- de runtime de la app (app_runtime, ver 0002_rol_runtime.sql) NO es el
+-- de runtime de la app (app_runtime2, ver 0002_rol_runtime.sql) NO es el
 -- propietario de las tablas, así que de todos modos queda sujeto a RLS
 -- sin necesidad de FORCE: ese rol nunca se usa para el alta inicial.
 

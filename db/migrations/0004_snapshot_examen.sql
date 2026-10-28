@@ -75,10 +75,10 @@ create policy intento_preguntas_select_propio on intento_preguntas for select us
 
 do $$
 begin
-  if exists (select 1 from pg_roles where rolname = 'app_runtime') then
-    grant execute on function public.preguntas_activas_para_snapshot() to app_runtime;
-    grant execute on function public.preguntas_de_evaluacion_para_snapshot(uuid) to app_runtime;
+  if exists (select 1 from pg_roles where rolname = 'app_runtime2') then
+    grant execute on function public.preguntas_activas_para_snapshot() to app_runtime2;
+    grant execute on function public.preguntas_de_evaluacion_para_snapshot(uuid) to app_runtime2;
   else
-    raise notice 'El rol "app_runtime" todavia no existe; volve a correr esta migracion despues de crearlo (ver 0002_rol_runtime.sql).';
+    raise notice 'El rol "app_runtime2" todavia no existe; volve a correr esta migracion despues de crearlo (ver 0002_rol_runtime.sql).';
   end if;
 end $$;
