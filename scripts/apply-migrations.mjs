@@ -1,11 +1,11 @@
 // Aplica todos los archivos .sql de db/migrations, en orden, contra la base
 // de Neon indicada en DATABASE_URL_ADMIN (.env.local) — el rol administrador
-// del proyecto, nunca el rol de runtime (app_runtime).
+// del proyecto, nunca el rol de runtime (app_runtime2).
 //
 // Uso:  npm run db:migrate
 //
 // Se corre dos veces en un setup nuevo: la primera vez crea toda la
-// estructura (0002_rol_runtime.sql avisa que el rol "app_runtime" todavía no
+// estructura (0002_rol_runtime.sql avisa que el rol "app_runtime2" todavía no
 // existe y no hace nada); después de crear ese rol desde el panel de Neon,
 // se vuelve a correr para que le otorgue los permisos (es idempotente).
 

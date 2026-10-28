@@ -56,7 +56,7 @@ La autenticación y los datos viven en dos sistemas distintos:
 - **RLS en Neon**: como no existe `auth.uid()` fuera de Supabase/Firebase, las políticas usan
   `current_setting('app.usuario_id', true)` — una variable de sesión que `src/lib/db/contexto.ts`
   fija con `SET LOCAL` en cada transacción, con el `uid` ya verificado. El rol de runtime
-  (`app_runtime`, ver `db/migrations/0002_rol_runtime.sql`) está sujeto a esas políticas; el rol
+  (`app_runtime2`, ver `db/migrations/0002_rol_runtime.sql`) está sujeto a esas políticas; el rol
   administrador de Neon solo se usa para migraciones y el alta del primer admin.
 
 No hay trigger de alta de usuario entre sistemas: cuando un admin/docente crea un usuario, la app
@@ -105,7 +105,7 @@ valores.
    npm run db:migrate
    ```
 
-4. En el panel de Neon, creá un segundo rol llamado **`app_runtime`** (Project → Roles → Add role).
+4. En el panel de Neon, creá un segundo rol llamado **`app_runtime2`** (Project → Roles → Add role).
    Neon genera su propio connection string/contraseña: copialo a `DATABASE_URL` en `.env.local`
    (este es el que usa la app en runtime, sujeto a RLS; nunca el del rol administrador).
 5. Volvé a correr `npm run db:migrate` — `0002_rol_runtime.sql` es idempotente y, ahora que el rol
@@ -211,7 +211,7 @@ resolución paso a paso, historial de intentos.
 
 - Crear el proyecto en Firebase (Authentication → Email/Password + Action URL propia para
   "Password reset") y el proyecto en Neon, y completar `.env.local` (ver arriba).
-- Correr `npm run db:migrate` (dos veces: antes y después de crear el rol `app_runtime` en Neon).
+- Correr `npm run db:migrate` (dos veces: antes y después de crear el rol `app_runtime2` en Neon).
 - Correr `npm run db:crear-admin` para tener el primer usuario administrador.
 - Si vas a desplegar en producción, configurar las mismas variables de entorno en tu hosting (por
   ejemplo Vercel) y agregar ese dominio en Firebase (Authentication → Settings → Authorized

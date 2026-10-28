@@ -47,11 +47,11 @@ $$;
 
 do $$
 begin
-  if exists (select 1 from pg_roles where rolname = 'app_runtime') then
-    grant execute on function public.contar_uso_pregunta_evaluaciones(uuid) to app_runtime;
-    grant execute on function public.contar_uso_pregunta_intentos(uuid) to app_runtime;
-    grant execute on function public.contar_respuestas_vinculadas_pregunta(uuid) to app_runtime;
+  if exists (select 1 from pg_roles where rolname = 'app_runtime2') then
+    grant execute on function public.contar_uso_pregunta_evaluaciones(uuid) to app_runtime2;
+    grant execute on function public.contar_uso_pregunta_intentos(uuid) to app_runtime2;
+    grant execute on function public.contar_respuestas_vinculadas_pregunta(uuid) to app_runtime2;
   else
-    raise notice 'El rol "app_runtime" todavia no existe; volve a correr esta migracion despues de crearlo (ver 0002_rol_runtime.sql).';
+    raise notice 'El rol "app_runtime2" todavia no existe; volve a correr esta migracion despues de crearlo (ver 0002_rol_runtime.sql).';
   end if;
 end $$;
