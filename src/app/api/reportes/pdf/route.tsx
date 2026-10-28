@@ -2,8 +2,8 @@ import path from "node:path";
 import { NextResponse } from "next/server";
 import { Document, Page, Text, View, Image, StyleSheet, renderToBuffer } from "@react-pdf/renderer";
 import { listarIntentosReporte } from "@/lib/db/reportes";
+import { obtenerUsuarioActual } from "@/lib/firebase/session";
 import { NOMBRE_INSTITUCION } from "@/lib/marca";
-import { crearClienteServidor } from "@/lib/supabase/server";
 
 export const runtime = "nodejs";
 
@@ -29,17 +29,14 @@ const estilos = StyleSheet.create({
 });
 
 export async function GET(request: Request) {
-  const supabase = await crearClienteServidor();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ error: "No autenticado." }, { status: 401 });
+  const usuario = await obtenerUsuarioActual();
+  if (!usuario) return NextResponse.json({ error: "No autenticado." }, { status: 401 });
 
   const { searchParams } = new URL(request.url);
   const cursoId = searchParams.get("curso");
   const evaluacionId = searchParams.get("evaluacion");
 
-  const filas = await listarIntentosReporte(user.id, { cursoId, evaluacionId });
+  const filas = await listarIntentosReporte(usuario.uid, { cursoId, evaluacionId });
 
   const total = filas.length;
   const promedio = total ? filas.reduce((s, f) => s + (f.porcentaje_obtenido ?? 0), 0) / total : 0;

@@ -89,11 +89,14 @@ create table if not exists instituciones (
   created_at timestamptz not null default now()
 );
 
--- perfiles.id: id del usuario en Supabase Auth (proyecto nuevo, solo Auth).
--- Sin FK ni default: la aplicación lo inserta explícitamente al crear el
--- usuario. Es el único punto de enlace entre Supabase Auth y Neon.
+-- perfiles.id: el uid del usuario en Firebase Auth (proyecto nuevo, solo
+-- Auth). Es "text" y no "uuid" a propósito: los uid de Firebase NO tienen
+-- formato UUID (son strings alfanuméricos opacos de ~28 caracteres), así
+-- que una columna "uuid" los rechazaría. Sin FK ni default: la aplicación
+-- lo inserta explícitamente al crear el usuario. Es el único punto de
+-- enlace entre Firebase Auth y Neon.
 create table if not exists perfiles (
-  id uuid primary key,
+  id text primary key,
   institucion_id uuid references instituciones (id) on delete set null,
   rol rol_usuario not null default 'estudiante',
   nombre text not null,
@@ -111,7 +114,7 @@ create table if not exists cursos (
   nombre text not null,
   division text not null,
   anio_lectivo int not null,
-  docente_titular_id uuid references perfiles (id) on delete set null,
+  docente_titular_id text references perfiles (id) on delete set null,
   activo boolean not null default true,
   is_demo boolean not null default false,
   created_at timestamptz not null default now()
@@ -120,7 +123,7 @@ create table if not exists cursos (
 create table if not exists curso_integrantes (
   id uuid primary key default gen_random_uuid(),
   curso_id uuid not null references cursos (id) on delete cascade,
-  perfil_id uuid not null references perfiles (id) on delete cascade,
+  perfil_id text not null references perfiles (id) on delete cascade,
   rol_en_curso text not null check (rol_en_curso in ('docente', 'estudiante')),
   created_at timestamptz not null default now(),
   unique (curso_id, perfil_id)
@@ -143,7 +146,7 @@ create table if not exists preguntas (
   capacidad capacidad_evaluada not null,
   dificultad nivel_dificultad not null,
   curso_id uuid references cursos (id) on delete set null,
-  autor_id uuid references perfiles (id) on delete set null,
+  autor_id text references perfiles (id) on delete set null,
   estado estado_pregunta not null default 'borrador',
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
@@ -171,7 +174,7 @@ create table if not exists evaluaciones (
   descuento_por_incorrecta boolean not null default false,
   config_automatica jsonb,
   estado estado_evaluacion not null default 'borrador',
-  creado_por uuid references perfiles (id) on delete set null,
+  creado_por text references perfiles (id) on delete set null,
   is_demo boolean not null default false,
   created_at timestamptz not null default now()
 );
@@ -195,7 +198,7 @@ create table if not exists asignaciones (
 create table if not exists intentos (
   id uuid primary key default gen_random_uuid(),
   evaluacion_id uuid not null references evaluaciones (id) on delete cascade,
-  estudiante_id uuid not null references perfiles (id) on delete cascade,
+  estudiante_id text not null references perfiles (id) on delete cascade,
   numero_intento int not null,
   estado estado_intento not null default 'no_iniciado',
   fecha_inicio timestamptz,
@@ -263,7 +266,7 @@ create table if not exists configuraciones (
 -- No guarda contraseñas, tokens ni respuestas correctas.
 create table if not exists auditoria_admin (
   id uuid primary key default gen_random_uuid(),
-  admin_id uuid references perfiles (id) on delete set null,
+  admin_id text references perfiles (id) on delete set null,
   admin_email text not null,
   accion text not null,
   tabla_afectada text not null,
@@ -308,16 +311,17 @@ create index if not exists idx_auditoria_admin_admin on auditoria_admin (admin_i
 -- FUNCIONES AUXILIARES (SECURITY DEFINER para evitar recursión de RLS)
 -- ---------------------------------------------------------------------
 
--- Lee el usuario autenticado actual desde la variable de sesión que la
--- capa de datos del servidor fija con `SET LOCAL app.usuario_id = '<uuid>'`
--- al abrir cada conexión/transacción, tras validar la sesión de Supabase
--- Auth. Reemplaza a auth.uid() (que no existe fuera de Supabase).
+-- Lee el usuario autenticado actual desde la variable de sesión que la capa
+-- de datos del servidor fija con `SET LOCAL app.usuario_id = '<uid>'` al
+-- abrir cada conexión/transacción, tras validar la cookie de sesión de
+-- Firebase Auth. Reemplaza a auth.uid() (que no existe fuera de Supabase).
+-- Es "text" y no "uuid": los uid de Firebase no tienen formato UUID.
 create or replace function public.usuario_actual_id()
-returns uuid
+returns text
 language sql
 stable
 as $$
-  select nullif(current_setting('app.usuario_id', true), '')::uuid;
+  select nullif(current_setting('app.usuario_id', true), '');
 $$;
 
 create or replace function public.mi_rol()

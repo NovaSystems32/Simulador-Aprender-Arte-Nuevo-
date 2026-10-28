@@ -12,7 +12,7 @@ import {
   obtenerPerfilBasico,
   obtenerResumenEliminacion,
 } from "@/lib/db/usuarios";
-import { crearClienteAdmin } from "@/lib/supabase/admin";
+import { authAdmin } from "@/lib/firebase/admin";
 import type { RolUsuario } from "@/lib/types";
 
 export interface ResultadoAccion {
@@ -41,33 +41,35 @@ export async function crearUsuario(
 
   if (!email || !nombre || !apellido) return { error: "Completá todos los campos." };
 
-  const admin = crearClienteAdmin();
   const password = generarPasswordTemporal();
 
-  // Paso 1: crear el usuario en Supabase Auth (proyecto nuevo, solo Auth).
-  const { data, error } = await admin.auth.admin.createUser({
-    email,
-    password,
-    email_confirm: true,
-    user_metadata: { rol, nombre, apellido },
-  });
-
-  if (error || !data.user) {
-    return { error: `No se pudo crear el usuario: ${error?.message ?? "error desconocido"}` };
+  // Paso 1: crear el usuario en Firebase Auth (proyecto nuevo, solo Auth).
+  let uid: string;
+  try {
+    const usuario = await authAdmin.createUser({
+      email,
+      password,
+      emailVerified: true,
+      displayName: `${nombre} ${apellido}`,
+    });
+    uid = usuario.uid;
+  } catch (err) {
+    const detalle = err instanceof Error ? err.message : "error desconocido";
+    return { error: `No se pudo crear el usuario: ${detalle}` };
   }
 
-  // Paso 2: insertar el perfil en Neon. Ya no hay un trigger que lo haga
-  // solo (no existe cruzando bases distintas) — si este paso falla,
-  // revertimos borrando el usuario de Auth para no dejar una cuenta sin
-  // perfil (transacción compensatoria, no hay atomicidad real entre
-  // Supabase Auth y Neon).
+  // Paso 2: insertar el perfil en Neon. No hay trigger que lo haga solo (no
+  // existe cruzando bases distintas) — si este paso falla, revertimos
+  // borrando el usuario de Auth para no dejar una cuenta sin perfil
+  // (transacción compensatoria, no hay atomicidad real entre Firebase Auth
+  // y Neon).
   try {
-    await crearPerfil(quienAdmin.id, { id: data.user.id, email, nombre, apellido, rol });
+    await crearPerfil(quienAdmin.id, { id: uid, email, nombre, apellido, rol });
   } catch (err) {
-    await admin.auth.admin.deleteUser(data.user.id).catch(() => {
-      // Si ni siquiera se puede revertir, queda un auth.users sin perfil:
-      // detectable (no puede loguear, 0 filas en perfiles) y corregible a
-      // mano borrando ese usuario desde el panel de Supabase.
+    await authAdmin.deleteUser(uid).catch(() => {
+      // Si ni siquiera se puede revertir, queda un usuario de Auth sin
+      // perfil: detectable (no puede loguear, 0 filas en perfiles) y
+      // corregible a mano borrándolo desde la consola de Firebase.
     });
     const detalle = err instanceof Error ? err.message : "error desconocido";
     return { error: `No se pudo crear el perfil del usuario (se revirtió el alta en Auth): ${detalle}` };
@@ -84,6 +86,12 @@ export async function alternarActivo(perfilId: string, activo: boolean): Promise
   if (!perfil) return { ok: false, mensaje: "No se encontró el usuario." };
 
   await actualizarActivo(quienAdmin.id, perfilId, activo);
+
+  // Si se desactiva, se revocan sus sesiones activas (si estaba logueado en
+  // algún lado, deja de poder seguir usando la app con la sesión vieja).
+  if (!activo) {
+    await authAdmin.revokeRefreshTokens(perfilId).catch(() => {});
+  }
 
   await registrarAuditoria({
     admin: quienAdmin,
@@ -166,7 +174,7 @@ export async function eliminarEstudianteDefinitivo(
 
   // Paso 1: borrar en Neon (cascada completa: curso_integrantes, intentos,
   // intento_preguntas, respuestas_estudiante, resultado_desglose). Si esto
-  // falla, no se toca Supabase Auth: mejor un usuario que sigue pudiendo
+  // falla, no se toca Firebase Auth: mejor un usuario que sigue pudiendo
   // entrar que una cuenta de Auth borrada con datos huérfanos en Neon.
   try {
     await eliminarPerfilEnCascada(quienAdmin.id, perfilId);
@@ -176,12 +184,13 @@ export async function eliminarEstudianteDefinitivo(
   }
 
   // Paso 2: solo si Neon se borró con éxito, borrar el usuario de Auth.
-  const admin = crearClienteAdmin();
-  const { error } = await admin.auth.admin.deleteUser(perfilId);
-  if (error) {
+  try {
+    await authAdmin.deleteUser(perfilId);
+  } catch (err) {
+    const detalle = err instanceof Error ? err.message : "error desconocido";
     return {
       ok: false,
-      mensaje: `Se borraron los datos pero no se pudo eliminar el acceso del estudiante: ${error.message}`,
+      mensaje: `Se borraron los datos pero no se pudo eliminar el acceso del estudiante: ${detalle}`,
     };
   }
 

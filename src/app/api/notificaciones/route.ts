@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import { conSesion } from "@/lib/db/contexto";
 import { listarNotificacionesEstudiante, listarNotificacionesStaff } from "@/lib/db/dashboard";
 import { perfiles } from "@/lib/db/schema";
-import { crearClienteServidor } from "@/lib/supabase/server";
+import { obtenerUsuarioActual } from "@/lib/firebase/session";
 
 export interface Notificacion {
   id: string;
@@ -19,20 +19,17 @@ export interface Notificacion {
  * cursos, y un admin todos. No hay tabla de notificaciones: se deriva de datos existentes.
  */
 export async function GET() {
-  const supabase = await crearClienteServidor();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ error: "No autenticado." }, { status: 401 });
+  const usuario = await obtenerUsuarioActual();
+  if (!usuario) return NextResponse.json({ error: "No autenticado." }, { status: 401 });
 
-  const rol = await conSesion(user.id, async (tx) => {
-    const filas = await tx.select({ rol: perfiles.rol }).from(perfiles).where(eq(perfiles.id, user.id)).limit(1);
+  const rol = await conSesion(usuario.uid, async (tx) => {
+    const filas = await tx.select({ rol: perfiles.rol }).from(perfiles).where(eq(perfiles.id, usuario.uid)).limit(1);
     return filas[0]?.rol ?? null;
   });
   if (!rol) return NextResponse.json({ notificaciones: [] });
 
   if (rol === "estudiante") {
-    const datos = await listarNotificacionesEstudiante(user.id);
+    const datos = await listarNotificacionesEstudiante(usuario.uid);
     const notificaciones: Notificacion[] = datos.map((i) => ({
       id: i.id,
       titulo: i.evaluacionNombre ?? "Evaluación",
@@ -44,7 +41,7 @@ export async function GET() {
   }
 
   // docente y admin: últimos intentos entregados en su alcance (RLS lo acota)
-  const datos = await listarNotificacionesStaff(user.id);
+  const datos = await listarNotificacionesStaff(usuario.uid);
   const notificaciones: Notificacion[] = datos.map((i) => ({
     id: i.id,
     titulo: i.estudianteNombre ? `${i.estudianteNombre} ${i.estudianteApellido}` : "Estudiante",

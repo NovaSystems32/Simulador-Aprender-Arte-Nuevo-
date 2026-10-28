@@ -20,12 +20,12 @@ export function perfilDesdeFila(fila: typeof perfiles.$inferSelect): Perfil {
 }
 
 /**
- * Inserta el perfil en Neon para un usuario que ya fue creado en Supabase
+ * Inserta el perfil en Neon para un usuario que ya fue creado en Firebase
  * Auth. Debe llamarse SIEMPRE justo después de un
- * `supabaseAdmin.auth.admin.createUser()` exitoso; si esta inserción
- * falla, quien llama debe revertir borrando ese usuario de Supabase Auth
- * (no hay transacción real entre los dos sistemas, así que la atomicidad
- * se simula con esta transacción compensatoria).
+ * `authAdmin.createUser()` exitoso; si esta inserción falla, quien llama
+ * debe revertir borrando ese usuario de Firebase Auth (no hay transacción
+ * real entre los dos sistemas, así que la atomicidad se simula con esta
+ * transacción compensatoria).
  */
 export async function crearPerfil(
   adminActualId: string,
@@ -189,9 +189,9 @@ export async function obtenerResumenEliminacion(
  * intentos -> intento_preguntas/respuestas_estudiante/resultado_desglose
  * en cascada; preguntas.autor_id, evaluaciones.creado_por y
  * cursos.docente_titular_id quedan en NULL). Quien llama debe borrar el
- * usuario en Supabase Auth SOLO si esto termina sin lanzar: si se borra
- * primero Auth y esto falla después, quedaría un auth.users sin perfil Y
- * sin los datos que deberían haberse limpiado.
+ * usuario en Firebase Auth SOLO si esto termina sin lanzar: si se borra
+ * primero Auth y esto falla después, quedaría un usuario de Auth sin
+ * perfil Y sin los datos que deberían haberse limpiado.
  */
 export async function eliminarPerfilEnCascada(adminActualId: string, perfilId: string): Promise<void> {
   await conSesion(adminActualId, async (tx) => {

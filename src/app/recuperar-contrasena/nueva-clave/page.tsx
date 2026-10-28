@@ -1,15 +1,20 @@
 import { redirect } from "next/navigation";
-import { crearClienteServidor } from "@/lib/supabase/server";
 import { Logo } from "@/components/Logo";
 import { FormularioNuevaClave } from "./FormularioNuevaClave";
 
-export default async function PaginaNuevaClave() {
-  const supabase = await crearClienteServidor();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) {
+/**
+ * Firebase manda acá el enlace del correo de restablecimiento (configurado
+ * como "Action URL" propia en la consola de Firebase, ver README), con
+ * `oobCode` como parámetro — es el código de un solo uso que se canjea por
+ * la contraseña nueva en actions.ts. Sin `oobCode` no hay nada que hacer acá.
+ */
+export default async function PaginaNuevaClave({
+  searchParams,
+}: {
+  searchParams: Promise<{ oobCode?: string }>;
+}) {
+  const { oobCode } = await searchParams;
+  if (!oobCode) {
     redirect("/recuperar-contrasena");
   }
 
@@ -21,7 +26,7 @@ export default async function PaginaNuevaClave() {
           <h1 className="mt-4 text-xl font-bold text-lila-800">Elegí tu nueva contraseña</h1>
         </div>
         <div className="mt-6">
-          <FormularioNuevaClave />
+          <FormularioNuevaClave oobCode={oobCode} />
         </div>
       </div>
     </main>

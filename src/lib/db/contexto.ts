@@ -10,9 +10,9 @@ export type Tx = Parameters<Parameters<Db["transaction"]>[0]>[0];
  * cualquier interpolación de SQL). Las políticas RLS de db/migrations/
  * 0001_init.sql leen esa variable a través de `usuario_actual_id()`.
  *
- * `usuarioId` debe venir SIEMPRE de una sesión de Supabase Auth ya
- * validada en el servidor (nunca de un valor provisto por el cliente sin
- * verificar), porque es lo único que hace cumplir RLS por fila.
+ * `usuarioId` debe venir SIEMPRE de una cookie de sesión de Firebase Auth ya
+ * verificada en el servidor (nunca de un valor provisto por el cliente sin
+ * validar), porque es lo único que hace cumplir RLS por fila.
  *
  * Pasar `null` corresponde a "sin usuario autenticado": las políticas que
  * exigen `id = usuario_actual_id()` simplemente no matchean, y solo

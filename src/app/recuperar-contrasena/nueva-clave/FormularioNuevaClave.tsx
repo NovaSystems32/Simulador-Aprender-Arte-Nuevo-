@@ -5,8 +5,8 @@ import { actualizarContrasena, type EstadoNuevaClave } from "./actions";
 
 const ESTADO_INICIAL: EstadoNuevaClave = { error: null };
 
-export function FormularioNuevaClave() {
-  const [estado, formAction, enviando] = useActionState(actualizarContrasena, ESTADO_INICIAL);
+export function FormularioNuevaClave({ oobCode }: { oobCode: string }) {
+  const [estado, formAction, enviando] = useActionState(actualizarContrasena.bind(null, oobCode), ESTADO_INICIAL);
 
   return (
     <form action={formAction} className="flex flex-col gap-4" noValidate>

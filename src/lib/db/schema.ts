@@ -56,10 +56,11 @@ export const instituciones = pgTable("instituciones", {
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
-// id: mismo uuid que el usuario en Supabase Auth (proyecto nuevo, solo Auth).
-// Sin default: la app lo inserta explícitamente al crear el usuario.
+// id: el uid del usuario en Firebase Auth (proyecto nuevo, solo Auth). Es
+// "text" y no "uuid": los uid de Firebase no tienen formato UUID. Sin
+// default: la app lo inserta explícitamente al crear el usuario.
 export const perfiles = pgTable("perfiles", {
-  id: uuid("id").primaryKey(),
+  id: text("id").primaryKey(),
   institucionId: uuid("institucion_id").references(() => instituciones.id, { onDelete: "set null" }),
   rol: rolUsuario("rol").notNull().default("estudiante"),
   nombre: text("nombre").notNull(),
@@ -79,7 +80,7 @@ export const cursos = pgTable("cursos", {
   nombre: text("nombre").notNull(),
   division: text("division").notNull(),
   anioLectivo: integer("anio_lectivo").notNull(),
-  docenteTitularId: uuid("docente_titular_id").references(() => perfiles.id, { onDelete: "set null" }),
+  docenteTitularId: text("docente_titular_id").references(() => perfiles.id, { onDelete: "set null" }),
   activo: boolean("activo").notNull().default(true),
   isDemo: boolean("is_demo").notNull().default(false),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
@@ -88,7 +89,7 @@ export const cursos = pgTable("cursos", {
 export const cursoIntegrantes = pgTable("curso_integrantes", {
   id: uuid("id").primaryKey().defaultRandom(),
   cursoId: uuid("curso_id").notNull().references(() => cursos.id, { onDelete: "cascade" }),
-  perfilId: uuid("perfil_id").notNull().references(() => perfiles.id, { onDelete: "cascade" }),
+  perfilId: text("perfil_id").notNull().references(() => perfiles.id, { onDelete: "cascade" }),
   rolEnCurso: text("rol_en_curso").notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 }, (t) => ({
@@ -112,7 +113,7 @@ export const preguntas = pgTable("preguntas", {
   capacidad: capacidadEvaluada("capacidad").notNull(),
   dificultad: nivelDificultad("dificultad").notNull(),
   cursoId: uuid("curso_id").references(() => cursos.id, { onDelete: "set null" }),
-  autorId: uuid("autor_id").references(() => perfiles.id, { onDelete: "set null" }),
+  autorId: text("autor_id").references(() => perfiles.id, { onDelete: "set null" }),
   estado: estadoPregunta("estado").notNull().default("borrador"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
@@ -142,7 +143,7 @@ export const evaluaciones = pgTable("evaluaciones", {
   descuentoPorIncorrecta: boolean("descuento_por_incorrecta").notNull().default(false),
   configAutomatica: jsonb("config_automatica"),
   estado: estadoEvaluacion("estado").notNull().default("borrador"),
-  creadoPor: uuid("creado_por").references(() => perfiles.id, { onDelete: "set null" }),
+  creadoPor: text("creado_por").references(() => perfiles.id, { onDelete: "set null" }),
   isDemo: boolean("is_demo").notNull().default(false),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
@@ -171,7 +172,7 @@ export const asignaciones = pgTable("asignaciones", {
 export const intentos = pgTable("intentos", {
   id: uuid("id").primaryKey().defaultRandom(),
   evaluacionId: uuid("evaluacion_id").notNull().references(() => evaluaciones.id, { onDelete: "cascade" }),
-  estudianteId: uuid("estudiante_id").notNull().references(() => perfiles.id, { onDelete: "cascade" }),
+  estudianteId: text("estudiante_id").notNull().references(() => perfiles.id, { onDelete: "cascade" }),
   numeroIntento: integer("numero_intento").notNull(),
   estado: estadoIntento("estado").notNull().default("no_iniciado"),
   fechaInicio: timestamp("fecha_inicio", { withTimezone: true }),
@@ -251,7 +252,7 @@ export const configuraciones = pgTable("configuraciones", {
 
 export const auditoriaAdmin = pgTable("auditoria_admin", {
   id: uuid("id").primaryKey().defaultRandom(),
-  adminId: uuid("admin_id").references(() => perfiles.id, { onDelete: "set null" }),
+  adminId: text("admin_id").references(() => perfiles.id, { onDelete: "set null" }),
   adminEmail: text("admin_email").notNull(),
   accion: text("accion").notNull(),
   tablaAfectada: text("tabla_afectada").notNull(),

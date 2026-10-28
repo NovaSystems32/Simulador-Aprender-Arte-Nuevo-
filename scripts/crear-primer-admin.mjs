@@ -1,7 +1,7 @@
-// Crea el primer administrador del simulador: un usuario en Supabase Auth +
+// Crea el primer administrador del simulador: un usuario en Firebase Auth +
 // su perfil (rol "admin") en Neon. Pensado para correrse UNA sola vez, a
 // mano, después de completar .env.local con las credenciales reales de
-// Supabase y Neon. No escribe ningún email ni contraseña en ningún archivo.
+// Firebase y Neon. No escribe ningún email ni contraseña en ningún archivo.
 //
 // Uso:  npm run db:crear-admin
 //
@@ -14,7 +14,8 @@ import { stdin, stdout } from "node:process";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { config } from "dotenv";
-import { createClient } from "@supabase/supabase-js";
+import { cert, initializeApp } from "firebase-admin/app";
+import { getAuth } from "firebase-admin/auth";
 import pg from "pg";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -27,11 +28,12 @@ async function preguntar(rl, etiqueta, valorEnv) {
 }
 
 async function main() {
-  const { NEXT_PUBLIC_SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, DATABASE_URL_ADMIN } = process.env;
+  const { FIREBASE_PROJECT_ID, FIREBASE_CLIENT_EMAIL, FIREBASE_PRIVATE_KEY, DATABASE_URL_ADMIN } = process.env;
 
   const faltantes = [];
-  if (!NEXT_PUBLIC_SUPABASE_URL) faltantes.push("NEXT_PUBLIC_SUPABASE_URL");
-  if (!SUPABASE_SERVICE_ROLE_KEY) faltantes.push("SUPABASE_SERVICE_ROLE_KEY");
+  if (!FIREBASE_PROJECT_ID) faltantes.push("FIREBASE_PROJECT_ID");
+  if (!FIREBASE_CLIENT_EMAIL) faltantes.push("FIREBASE_CLIENT_EMAIL");
+  if (!FIREBASE_PRIVATE_KEY) faltantes.push("FIREBASE_PRIVATE_KEY");
   if (!DATABASE_URL_ADMIN) faltantes.push("DATABASE_URL_ADMIN");
   if (faltantes.length > 0) {
     console.error(`Faltan variables en .env.local: ${faltantes.join(", ")}. Copiá .env.example y completalas.`);
@@ -62,19 +64,27 @@ async function main() {
     process.exit(1);
   }
 
-  const supabaseAdmin = createClient(NEXT_PUBLIC_SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
-    auth: { autoRefreshToken: false, persistSession: false },
+  const app = initializeApp({
+    credential: cert({
+      projectId: FIREBASE_PROJECT_ID,
+      clientEmail: FIREBASE_CLIENT_EMAIL,
+      privateKey: FIREBASE_PRIVATE_KEY.replace(/\\n/g, "\n"),
+    }),
   });
+  const authAdmin = getAuth(app);
 
-  console.log(`Creando usuario en Supabase Auth (${email})...`);
-  const { data, error } = await supabaseAdmin.auth.admin.createUser({
-    email,
-    password,
-    email_confirm: true,
-    user_metadata: { rol: "admin", nombre, apellido },
-  });
-  if (error || !data.user) {
-    console.error(`No se pudo crear el usuario en Supabase Auth: ${error?.message ?? "error desconocido"}`);
+  console.log(`Creando usuario en Firebase Auth (${email})...`);
+  let uid;
+  try {
+    const usuario = await authAdmin.createUser({
+      email,
+      password,
+      emailVerified: true,
+      displayName: `${nombre} ${apellido}`,
+    });
+    uid = usuario.uid;
+  } catch (err) {
+    console.error(`No se pudo crear el usuario en Firebase Auth: ${err.message}`);
     process.exit(1);
   }
 
@@ -85,11 +95,11 @@ async function main() {
   try {
     await client.query(
       `insert into perfiles (id, rol, nombre, apellido, email) values ($1, 'admin', $2, $3, $4)`,
-      [data.user.id, nombre, apellido, email]
+      [uid, nombre, apellido, email]
     );
   } catch (err) {
-    console.error(`No se pudo crear el perfil en Neon (se revierte el alta en Supabase Auth): ${err.message}`);
-    await supabaseAdmin.auth.admin.deleteUser(data.user.id).catch(() => {});
+    console.error(`No se pudo crear el perfil en Neon (se revierte el alta en Firebase Auth): ${err.message}`);
+    await authAdmin.deleteUser(uid).catch(() => {});
     process.exit(1);
   } finally {
     await client.end();

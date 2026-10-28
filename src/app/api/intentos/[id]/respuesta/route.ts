@@ -3,16 +3,13 @@ import { NextResponse } from "next/server";
 import { conSesion } from "@/lib/db/contexto";
 import { intentoPreguntas, intentos, respuestasEstudiante } from "@/lib/db/schema";
 import { finalizarIntento } from "@/lib/intentos-server";
-import { crearClienteServidor } from "@/lib/supabase/server";
+import { obtenerUsuarioActual } from "@/lib/firebase/session";
 import type { OpcionLetra } from "@/lib/types";
 
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const supabase = await crearClienteServidor();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ error: "No autenticado." }, { status: 401 });
+  const usuario = await obtenerUsuarioActual();
+  if (!usuario) return NextResponse.json({ error: "No autenticado." }, { status: 401 });
 
   const body = await request.json().catch(() => null);
   const preguntaId = body?.preguntaId as string | undefined;
@@ -20,10 +17,10 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   const marcadaParaRevisar = Boolean(body?.marcadaParaRevisar);
   if (!preguntaId) return NextResponse.json({ error: "Falta preguntaId." }, { status: 400 });
 
-  const resultado = await conSesion(user.id, async (tx) => {
+  const resultado = await conSesion(usuario.uid, async (tx) => {
     const filasIntento = await tx.select().from(intentos).where(eq(intentos.id, id)).limit(1);
     const intento = filasIntento[0];
-    if (!intento || intento.estudianteId !== user.id) {
+    if (!intento || intento.estudianteId !== usuario.uid) {
       return { status: 404 as const, body: { error: "Intento no encontrado." } };
     }
     if (intento.estado !== "en_curso") {

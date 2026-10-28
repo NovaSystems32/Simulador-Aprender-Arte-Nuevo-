@@ -44,7 +44,7 @@ returns table (
   capacidad capacidad_evaluada,
   dificultad nivel_dificultad,
   curso_id uuid,
-  autor_id uuid,
+  autor_id text,
   estado estado_pregunta,
   created_at timestamptz,
   updated_at timestamptz
