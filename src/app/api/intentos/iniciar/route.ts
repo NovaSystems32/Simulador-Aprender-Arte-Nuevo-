@@ -4,26 +4,23 @@ import { conSesion, type Tx } from "@/lib/db/contexto";
 import { evaluaciones, intentoPreguntas, intentos, perfiles, respuestasEstudiante } from "@/lib/db/schema";
 import { evaluacionDesdeFila } from "@/lib/db/evaluaciones";
 import { aPreguntasPublicas, armarSnapshotPreguntas, finalizarIntento } from "@/lib/intentos-server";
-import { crearClienteServidor } from "@/lib/supabase/server";
+import { obtenerUsuarioActual } from "@/lib/firebase/session";
 import type { Evaluacion } from "@/lib/types";
 
 export async function POST(request: Request) {
-  const supabase = await crearClienteServidor();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ error: "No autenticado." }, { status: 401 });
+  const usuario = await obtenerUsuarioActual();
+  if (!usuario) return NextResponse.json({ error: "No autenticado." }, { status: 401 });
 
   const body = await request.json().catch(() => null);
   const evaluacionId = body?.evaluacionId as string | undefined;
   if (!evaluacionId) return NextResponse.json({ error: "Falta evaluacionId." }, { status: 400 });
 
   try {
-    const resultado = await conSesion(user.id, async (tx) => {
+    const resultado = await conSesion(usuario.uid, async (tx) => {
       const filasPerfil = await tx
         .select({ rol: perfiles.rol, activo: perfiles.activo })
         .from(perfiles)
-        .where(eq(perfiles.id, user.id))
+        .where(eq(perfiles.id, usuario.uid))
         .limit(1);
       const perfil = filasPerfil[0];
       if (!perfil || !perfil.activo || perfil.rol !== "estudiante") {
@@ -55,7 +52,7 @@ export async function POST(request: Request) {
       const intentosPrevios = await tx
         .select()
         .from(intentos)
-        .where(and(eq(intentos.evaluacionId, ev.id), eq(intentos.estudianteId, user.id)))
+        .where(and(eq(intentos.evaluacionId, ev.id), eq(intentos.estudianteId, usuario.uid)))
         .orderBy(desc(intentos.numeroIntento));
 
       const enCurso = intentosPrevios.find((i) => i.estado === "en_curso");
@@ -90,7 +87,7 @@ export async function POST(request: Request) {
         .insert(intentos)
         .values({
           evaluacionId: ev.id,
-          estudianteId: user.id,
+          estudianteId: usuario.uid,
           numeroIntento: finalizados.length + 1,
           estado: "en_curso",
           fechaInicio: ahora,

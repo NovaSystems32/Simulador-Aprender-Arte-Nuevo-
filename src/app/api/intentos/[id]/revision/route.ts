@@ -2,7 +2,7 @@ import { asc, eq } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { conSesion } from "@/lib/db/contexto";
 import { evaluaciones, intentoPreguntas, intentos, respuestasEstudiante } from "@/lib/db/schema";
-import { crearClienteServidor } from "@/lib/supabase/server";
+import { obtenerUsuarioActual } from "@/lib/firebase/session";
 
 /**
  * Devuelve las preguntas de un intento YA ENTREGADO junto con la respuesta
@@ -11,16 +11,13 @@ import { crearClienteServidor } from "@/lib/supabase/server";
  */
 export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const supabase = await crearClienteServidor();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ error: "No autenticado." }, { status: 401 });
+  const usuario = await obtenerUsuarioActual();
+  if (!usuario) return NextResponse.json({ error: "No autenticado." }, { status: 401 });
 
-  const resultado = await conSesion(user.id, async (tx) => {
+  const resultado = await conSesion(usuario.uid, async (tx) => {
     const filasIntento = await tx.select().from(intentos).where(eq(intentos.id, id)).limit(1);
     const intento = filasIntento[0];
-    if (!intento || intento.estudianteId !== user.id) {
+    if (!intento || intento.estudianteId !== usuario.uid) {
       return { status: 404 as const, body: { error: "Intento no encontrado." } };
     }
     if (intento.estado !== "entregado" && intento.estado !== "expirado") {

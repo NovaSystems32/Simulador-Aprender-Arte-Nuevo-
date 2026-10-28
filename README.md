@@ -11,14 +11,14 @@ visual del Instituto Arte Nuevo (logo en `public/images/logo-arte-nuevo.png`, to
 Este proyecto es una versión **completamente independiente** de `Simulador_Aprender` (Instituto
 Santiago Ramón y Cajal): mismo código, componentes, diseño y funcionalidades, pero con una base de
 datos nueva y vacía, repositorio propio e identidad visual propia. No comparte datos, usuarios,
-proyecto de Supabase ni proyecto de Neon con el original.
+proyecto de Firebase ni proyecto de Neon con el original (que además usaba Supabase, no Firebase).
 
 ## Índice
 
 1. [Tecnologías](#tecnologías)
 2. [Arquitectura de datos](#arquitectura-de-datos)
 3. [Instalación](#instalación)
-4. [Configurar Supabase (Auth + Storage)](#configurar-supabase-auth--storage)
+4. [Configurar Firebase (Auth)](#configurar-firebase-auth)
 5. [Configurar Neon (datos de negocio)](#configurar-neon-datos-de-negocio)
 6. [Crear el primer administrador](#crear-el-primer-administrador)
 7. [Ejecutar el proyecto](#ejecutar-el-proyecto)
@@ -31,7 +31,7 @@ proyecto de Supabase ni proyecto de Neon con el original.
 - **Next.js 16** (App Router) + **TypeScript** estricto
 - **Tailwind CSS 4**
 - **Neon (Postgres serverless)** + **Drizzle ORM** para todos los datos de negocio
-- **Supabase** solo para **Auth** y **Storage** (sin tablas de negocio)
+- **Firebase Authentication** solo para login/sesión (sin tablas de negocio; no se usa Firestore)
 - **Recharts** para gráficos
 - **KaTeX** (`react-katex`) para fórmulas matemáticas
 - **`@react-pdf/renderer`** y **`exceljs`** para informes en PDF/Excel
@@ -39,48 +39,63 @@ proyecto de Supabase ni proyecto de Neon con el original.
 
 ## Arquitectura de datos
 
-A diferencia de un proyecto Supabase "todo en uno", acá la autenticación y los datos viven en dos
-sistemas distintos:
+La autenticación y los datos viven en dos sistemas distintos:
 
-- **Supabase** (proyecto nuevo, vacío): únicamente `auth.users` (login, recuperación de contraseña)
-  y Storage (buckets preparados para uso futuro). Sin tablas de negocio.
+- **Firebase Authentication** (proyecto nuevo): únicamente identidad — login, sesión, recuperación
+  de contraseña. Sin Firestore, sin tablas de negocio: el `uid` de cada usuario es el único dato
+  que la app lee de Firebase.
 - **Neon**: las 13 tablas de negocio (perfiles, cursos, preguntas, evaluaciones, intentos, etc.),
-  definidas en `db/migrations/`. `perfiles.id` guarda el mismo uuid que el usuario en Supabase Auth,
-  pero **sin FK** entre bases (no es posible cruzando sistemas distintos).
-- **RLS en Neon**: como no existe `auth.uid()` fuera de Supabase, las políticas usan
+  definidas en `db/migrations/`. `perfiles.id` guarda el mismo `uid` que el usuario en Firebase
+  Auth — una columna `text` (los uid de Firebase no tienen formato UUID), **sin FK** entre
+  sistemas (no es posible cruzando bases distintas).
+- **Sesión**: el login (`src/app/login/actions.ts`) verifica el usuario/contraseña contra la API
+  REST de Firebase (`src/lib/firebase/rest.ts`) y cambia el token de corta duración por una
+  **cookie de sesión** de Firebase (`src/lib/firebase/session.ts`, httpOnly, hasta 14 días). El
+  middleware (`src/proxy.ts`) y `src/lib/auth.ts` verifican esa cookie contra el SDK de
+  administrador de Firebase (`src/lib/firebase/admin.ts`) en cada request.
+- **RLS en Neon**: como no existe `auth.uid()` fuera de Supabase/Firebase, las políticas usan
   `current_setting('app.usuario_id', true)` — una variable de sesión que `src/lib/db/contexto.ts`
-  fija con `SET LOCAL` en cada transacción, después de validar la sesión de Supabase Auth en el
-  servidor (`src/lib/auth.ts`). El rol de runtime (`app_runtime`, ver `db/migrations/0002_rol_runtime.sql`)
-  está sujeto a esas políticas; el rol administrador de Neon solo se usa para migraciones.
+  fija con `SET LOCAL` en cada transacción, con el `uid` ya verificado. El rol de runtime
+  (`app_runtime`, ver `db/migrations/0002_rol_runtime.sql`) está sujeto a esas políticas; el rol
+  administrador de Neon solo se usa para migraciones y el alta del primer admin.
 
-No hay trigger de alta de usuario entre bases: cuando un admin/docente crea un usuario, la app
-primero lo crea en Supabase Auth y recién después inserta su perfil en Neon
+No hay trigger de alta de usuario entre sistemas: cuando un admin/docente crea un usuario, la app
+primero lo crea en Firebase Auth y recién después inserta su perfil en Neon
 (`src/lib/db/usuarios.ts`), revirtiendo el alta en Auth si el segundo paso falla.
 
 ## Instalación
 
-Requisitos: Node.js 20+, una cuenta gratuita en [supabase.com](https://supabase.com) y un proyecto
-en [neon.tech](https://neon.tech).
+Requisitos: Node.js 20+, una cuenta gratuita de [Firebase](https://firebase.google.com) (Google) y
+un proyecto en [neon.tech](https://neon.tech).
 
 ```bash
 npm install
 ```
 
-## Configurar Supabase (Auth + Storage)
+## Configurar Firebase (Auth)
 
-1. Creá un proyecto **nuevo** en [supabase.com](https://supabase.com/dashboard) (no reutilices el
-   del proyecto original).
-2. Copiá `.env.example` a `.env.local`: `cp .env.example .env.local`
-3. Completá en `.env.local`:
-   - `NEXT_PUBLIC_SUPABASE_URL` y `NEXT_PUBLIC_SUPABASE_ANON_KEY`: **Project Settings → API**.
-   - `SUPABASE_SERVICE_ROLE_KEY`: misma pantalla, clave `service_role` (secreta: nunca la subas a un
-     repositorio ni la expongas al navegador). Se usa solo para crear/borrar usuarios desde
-     Server Actions.
+1. Entrá a la [consola de Firebase](https://console.firebase.google.com/) y creá un proyecto
+   **nuevo** (no reutilices el de otro simulador). El plan gratuito (Spark) alcanza.
+2. **Authentication → Get started → Sign-in method → Email/Password**: habilitalo.
+3. **Authentication → Templates → Password reset → ícono de lápiz ("Edit template") → "Customize
+   action URL"**: cambiala a `https://tu-dominio/recuperar-contrasena/nueva-clave` (en desarrollo,
+   `http://localhost:3000/recuperar-contrasena/nueva-clave`). Sin este paso, el enlace del correo
+   de "olvidé mi contraseña" lleva a una página genérica de Firebase en vez de la propia del
+   simulador.
+4. **Project settings (ícono de engranaje) → General**: copiá el **Web API Key** →
+   `NEXT_PUBLIC_FIREBASE_API_KEY` en `.env.local`.
+5. **Project settings → Service accounts → Generate new private key**: descarga un JSON. De ahí
+   copiás tres valores a `.env.local`:
+   - `project_id` → `FIREBASE_PROJECT_ID`
+   - `client_email` → `FIREBASE_CLIENT_EMAIL`
+   - `private_key` → `FIREBASE_PRIVATE_KEY` (pegalo tal cual, con los `\n` literales)
+
+Copiá `.env.example` a `.env.local` (`cp .env.example .env.local`) antes de completar estos
+valores.
 
 ## Configurar Neon (datos de negocio)
 
-1. Creá un proyecto **nuevo** en [neon.tech](https://neon.tech/) (tampoco reutilices el del
-   proyecto original).
+1. Creá un proyecto **nuevo** en [neon.tech](https://neon.tech/).
 2. Copiá el connection string del rol por defecto (el "owner" del proyecto) a
    `DATABASE_URL_ADMIN` en `.env.local`.
 3. Corré las migraciones (crean toda la estructura: tablas, enums, índices, funciones y políticas
@@ -98,14 +113,14 @@ npm install
 
 ## Crear el primer administrador
 
-Con `.env.local` completo (Supabase + Neon):
+Con `.env.local` completo (Firebase + Neon):
 
 ```bash
 npm run db:crear-admin
 ```
 
 Pide el email y la contraseña por línea de comandos (no quedan escritos en ningún archivo), crea el
-usuario en Supabase Auth y su perfil con rol `admin` en Neon. A partir de ahí, el resto de los
+usuario en Firebase Auth y su perfil con rol `admin` en Neon. A partir de ahí, el resto de los
 usuarios se crean desde el panel de administración de la propia aplicación.
 
 ## Ejecutar el proyecto
@@ -160,12 +175,13 @@ src/
   lib/
     db/                        Capa de datos Neon (Drizzle): schema, contexto de sesión/RLS,
                                  un módulo por dominio (cursos, preguntas, evaluaciones, intentos…)
-    supabase/                  Clientes de Supabase (browser, server, admin — solo Auth/Storage)
+    firebase/                  SDK de administrador, cookie de sesión y llamadas REST de Auth
     scoring.ts                  Corrección automática (función pura)
     randomization.ts            Selección aleatoria y barajado (función pura)
     intentos-server.ts          Arma el snapshot de preguntas y corrige intentos (solo servidor)
     permisos.ts                  Reglas de acceso por rol y ruta (función pura)
-  proxy.ts                     Protección de rutas por rol (antes "middleware.ts" en Next 16)
+  proxy.ts                     Protección de rutas por rol (runtime Node: el SDK de Firebase Admin
+                                 necesita módulos de Node, no funciona en el runtime Edge)
 tests/unit/                   Tests de Vitest
 ```
 
@@ -193,8 +209,10 @@ resolución paso a paso, historial de intentos.
 
 ## Configuraciones externas pendientes (a completar por vos)
 
-- Crear el proyecto en Supabase y el proyecto en Neon, y completar `.env.local` (ver arriba).
+- Crear el proyecto en Firebase (Authentication → Email/Password + Action URL propia para
+  "Password reset") y el proyecto en Neon, y completar `.env.local` (ver arriba).
 - Correr `npm run db:migrate` (dos veces: antes y después de crear el rol `app_runtime` en Neon).
 - Correr `npm run db:crear-admin` para tener el primer usuario administrador.
 - Si vas a desplegar en producción, configurar las mismas variables de entorno en tu hosting (por
-  ejemplo Vercel) y restringir la URL de callback de Auth en Supabase a tu dominio real.
+  ejemplo Vercel) y agregar ese dominio en Firebase (Authentication → Settings → Authorized
+  domains) para que el login funcione ahí también.

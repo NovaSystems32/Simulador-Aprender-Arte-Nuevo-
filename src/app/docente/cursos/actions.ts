@@ -10,7 +10,7 @@ import {
   quitarIntegrantes,
 } from "@/lib/db/cursos";
 import { crearPerfil } from "@/lib/db/usuarios";
-import { crearClienteAdmin } from "@/lib/supabase/admin";
+import { authAdmin } from "@/lib/firebase/admin";
 
 export interface EstadoFormulario {
   error: string | null;
@@ -61,28 +61,30 @@ export async function incorporarEstudianteNuevo(
 
   if (!email || !nombre || !apellido) return { error: "Completá nombre, apellido y correo del estudiante." };
 
-  const admin = crearClienteAdmin();
   const passwordTemporal = generarPasswordTemporal();
 
-  // Paso 1: usuario en Supabase Auth.
-  const { data: usuario, error: errorCreacion } = await admin.auth.admin.createUser({
-    email,
-    password: passwordTemporal,
-    email_confirm: true,
-    user_metadata: { rol: "estudiante", nombre, apellido },
-  });
-
-  if (errorCreacion || !usuario.user) {
-    return { error: `No se pudo crear el estudiante: ${errorCreacion?.message ?? "error desconocido"}` };
+  // Paso 1: usuario en Firebase Auth.
+  let uid: string;
+  try {
+    const usuario = await authAdmin.createUser({
+      email,
+      password: passwordTemporal,
+      emailVerified: true,
+      displayName: `${nombre} ${apellido}`,
+    });
+    uid = usuario.uid;
+  } catch (err) {
+    const detalle = err instanceof Error ? err.message : "error desconocido";
+    return { error: `No se pudo crear el estudiante: ${detalle}` };
   }
 
   // Paso 2: perfil en Neon + alta en el curso. Si algo de esto falla,
   // revertimos el alta en Auth (transacción compensatoria).
   try {
-    await crearPerfil(perfilActual.id, { id: usuario.user.id, email, nombre, apellido, rol: "estudiante" });
-    await agregarIntegranteACurso(perfilActual.id, cursoId, usuario.user.id, "estudiante");
+    await crearPerfil(perfilActual.id, { id: uid, email, nombre, apellido, rol: "estudiante" });
+    await agregarIntegranteACurso(perfilActual.id, cursoId, uid, "estudiante");
   } catch (err) {
-    await admin.auth.admin.deleteUser(usuario.user.id).catch(() => {});
+    await authAdmin.deleteUser(uid).catch(() => {});
     const detalle = err instanceof Error ? err.message : "error desconocido";
     return { error: `Estudiante no se pudo incorporar (se revirtió el alta en Auth): ${detalle}` };
   }

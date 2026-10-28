@@ -1,20 +1,17 @@
 import { NextResponse } from "next/server";
 import { listarIntentosReporte } from "@/lib/db/reportes";
-import { crearClienteServidor } from "@/lib/supabase/server";
+import { obtenerUsuarioActual } from "@/lib/firebase/session";
 import { generarCsv } from "@/lib/csv";
 
 export async function GET(request: Request) {
-  const supabase = await crearClienteServidor();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ error: "No autenticado." }, { status: 401 });
+  const usuario = await obtenerUsuarioActual();
+  if (!usuario) return NextResponse.json({ error: "No autenticado." }, { status: 401 });
 
   const { searchParams } = new URL(request.url);
   const cursoId = searchParams.get("curso");
   const evaluacionId = searchParams.get("evaluacion");
 
-  const data = await listarIntentosReporte(user.id, { cursoId, evaluacionId });
+  const data = await listarIntentosReporte(usuario.uid, { cursoId, evaluacionId });
 
   const filas = data.map((f) => ({
     estudiante: `${f.estudiante?.nombre ?? ""} ${f.estudiante?.apellido ?? ""}`.trim(),

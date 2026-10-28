@@ -1,5 +1,5 @@
 // Tipos de dominio compartidos entre cliente y servidor.
-// Reflejan el esquema definido en supabase/migrations/0001_init.sql
+// Reflejan el esquema definido en db/migrations/0001_init.sql
 
 export type RolUsuario = "admin" | "docente" | "estudiante";
 
