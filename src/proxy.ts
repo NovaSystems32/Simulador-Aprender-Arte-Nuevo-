@@ -1,15 +1,18 @@
-import { eq } from "drizzle-orm";
 import { NextResponse, type NextRequest } from "next/server";
-import { conSesion } from "@/lib/db/contexto";
-import { authAdmin } from "@/lib/firebase/admin";
-import { NOMBRE_COOKIE_SESION } from "@/lib/firebase/session";
-import { perfiles } from "@/lib/db/schema";
-import { prefijoProtegidoDe, rolPuedeAcceder } from "@/lib/permisos";
+import { NOMBRE_COOKIE_SESION } from "@/lib/firebase/cookie";
+import { prefijoProtegidoDe } from "@/lib/permisos";
 
-// A diferencia del viejo "middleware.ts" (Edge por defecto), en Next 16 el
-// archivo "proxy.ts" corre siempre en runtime Node — por eso el SDK de
-// administrador de Firebase (que usa módulos de Node como crypto) funciona
-// acá sin configuración adicional.
+// Chequeo optimista: solo mira si hay cookie de sesión, sin verificarla
+// (no se puede usar el SDK de administrador de Firebase acá — su dependencia
+// jwks-rsa -> jose es ESM-only y el bundler de Next para el middleware no
+// logra empaquetarla sin romper en runtime). La verificación real de la
+// cookie Y el control de rol/activo contra Neon ya los hace `exigirPerfil`
+// (src/lib/auth.ts) en cada layout protegido (admin/docente/estudiante) y en
+// cada Route Handler de /api — ahí sí corren como función de servidor normal,
+// sin este problema de bundling. Este middleware es solo una redirección
+// temprana para el caso común (sin cookie en absoluto); una cookie presente
+// pero inválida/expirada o de un rol sin permiso igual termina redirigida
+// por esos chequeos reales un paso más adelante.
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
@@ -18,35 +21,10 @@ export async function proxy(request: NextRequest) {
   }
 
   const cookieSesion = request.cookies.get(NOMBRE_COOKIE_SESION)?.value;
-  let uid: string | null = null;
-  if (cookieSesion) {
-    try {
-      const decoded = await authAdmin.verifySessionCookie(cookieSesion, true);
-      uid = decoded.uid;
-    } catch {
-      uid = null;
-    }
-  }
-
-  if (!uid) {
+  if (!cookieSesion) {
     const loginUrl = new URL("/login", request.url);
     loginUrl.searchParams.set("redirectTo", pathname);
     return NextResponse.redirect(loginUrl);
-  }
-
-  // El rol/activo vive en Neon, no en la cookie de sesión: se consulta
-  // dentro de una transacción con RLS activo para este mismo usuario.
-  const perfil = await conSesion(uid, async (tx) => {
-    const filas = await tx
-      .select({ rol: perfiles.rol, activo: perfiles.activo })
-      .from(perfiles)
-      .where(eq(perfiles.id, uid))
-      .limit(1);
-    return filas[0];
-  });
-
-  if (!rolPuedeAcceder(pathname, perfil?.rol ?? null, perfil?.activo ?? false)) {
-    return NextResponse.redirect(new URL("/no-autorizado", request.url));
   }
 
   return NextResponse.next();
