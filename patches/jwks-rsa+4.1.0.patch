@@ -1,0 +1,21 @@
+diff --git a/node_modules/jwks-rsa/src/utils.js b/node_modules/jwks-rsa/src/utils.js
+index ef3ffb5..7bbdf42 100644
+--- a/node_modules/jwks-rsa/src/utils.js
++++ b/node_modules/jwks-rsa/src/utils.js
+@@ -1,4 +1,3 @@
+-const jose = require('jose');
+ const JwksError = require('./errors/JwksError');
+ 
+ function resolveAlg(jwk) {
+@@ -33,6 +32,11 @@ function resolveAlg(jwk) {
+ }
+ 
+ async function retrieveSigningKeys(jwks) {
++  // jose es ESM-only; se carga acá adentro (dinámico) en vez de arriba del
++  // archivo (require síncrono) para que cargar este módulo no explote en
++  // bundlers/runtimes que no soportan require() de un módulo ESM, aun en
++  // casos (como el nuestro) donde esta función nunca llega a invocarse.
++  const jose = await import('jose');
+   const results = [];
+ 
+   jwks = jwks
