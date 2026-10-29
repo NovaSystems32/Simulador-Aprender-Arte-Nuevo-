@@ -1,10 +1,9 @@
 import "server-only";
 import { cookies } from "next/headers";
 import { authAdmin } from "./admin";
+import { NOMBRE_COOKIE_SESION, DURACION_SESION_MS } from "./cookie";
 
-export const NOMBRE_COOKIE_SESION = "session";
-/** Máximo que permite Firebase para una cookie de sesión: 14 días. */
-export const DURACION_SESION_MS = 1000 * 60 * 60 * 24 * 14;
+export { NOMBRE_COOKIE_SESION, DURACION_SESION_MS };
 
 /**
  * Cambia el idToken (de corta duración, ~1h) devuelto por el login por una
