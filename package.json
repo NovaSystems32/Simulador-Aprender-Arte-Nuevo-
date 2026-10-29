@@ -10,7 +10,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "db:migrate": "node scripts/apply-migrations.mjs",
-    "db:crear-admin": "node scripts/crear-primer-admin.mjs"
+    "db:crear-admin": "node scripts/crear-primer-admin.mjs",
+    "postinstall": "patch-package"
   },
   "dependencies": {
     "@neondatabase/serverless": "^0.10.4",
@@ -46,6 +47,7 @@
     "eslint": "^9",
     "eslint-config-next": "16.3.0",
     "jsdom": "^30.0.1",
+    "patch-package": "^8.0.1",
     "pg": "^8.23.0",
     "tailwindcss": "^4",
     "tsx": "^4.23.12",
