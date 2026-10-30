@@ -5,8 +5,9 @@
      El lila (~272° de tono) se extrajo por muestreo de píxeles directamente
      de public/images/logo-arte-nuevo.png (lila dominante del isotipo ≈
      #8048A0). El amarillo es el complementario institucional (no aparece en
-     el isotipo, elegido para contraste WCAG AA con texto blanco en botones:
-     ≥4.5:1 en los tonos 600/700). El gris es la tercera paleta institucional
+     el isotipo): tonos dorados, no ámbar/naranja, elegidos para contraste
+     WCAG AA con texto blanco en botones (≥4.5:1 en los tonos 600/700). El
+     gris es la tercera paleta institucional
      pedida explícitamente, y reemplaza los grises sueltos que antes vivían
      sólo como fondo/texto/borde. */
   --color-lila-800: #5b21b6;
@@ -15,11 +16,11 @@
   --color-lila-100: #ede9fe;
   --color-lila-50: #f5f3ff;
 
-  --color-amarillo-700: #92400e;
-  --color-amarillo-600: #b45309;
-  --color-amarillo-500: #d97706;
-  --color-amarillo-100: #fef3c7;
-  --color-amarillo-50: #fffbeb;
+  --color-amarillo-700: #7a5c00;
+  --color-amarillo-600: #a16207;
+  --color-amarillo-500: #b8860b;
+  --color-amarillo-100: #faf0c8;
+  --color-amarillo-50: #fffdf0;
 
   --color-gris-900: #1e293b;
   --color-gris-500: #64748b;
