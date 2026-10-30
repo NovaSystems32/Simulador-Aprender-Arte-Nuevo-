@@ -1,3 +1,27 @@
+diff --git a/node_modules/jwks-rsa/src/integrations/passport.js b/node_modules/jwks-rsa/src/integrations/passport.js
+index 79d75da..7d7a387 100644
+--- a/node_modules/jwks-rsa/src/integrations/passport.js
++++ b/node_modules/jwks-rsa/src/integrations/passport.js
+@@ -1,4 +1,3 @@
+-const jose = require('jose');
+ const { ArgumentError } = require('../errors');
+ const { JwksClient } = require('../JwksClient');
+ const supportedAlg = require('./config');
+@@ -27,7 +26,13 @@ module.exports.passportJwtSecret = function (options) {
+   const client = new JwksClient(options);
+   const onError = options.handleSigningKeyError || handleSigningKeyError;
+ 
+-  return function secretProvider(req, rawJwtToken, cb) {
++  return async function secretProvider(req, rawJwtToken, cb) {
++    // jose es ESM-only; se carga acá adentro (dinámico) en vez de arriba del
++    // archivo (require síncrono) para que cargar este módulo no explote en
++    // bundlers/runtimes que no soportan require() de un módulo ESM, aun en
++    // casos (como el nuestro) donde esta integración (Passport.js) nunca
++    // llega a usarse.
++    const jose = await import('jose');
+     let decoded;
+     try {
+       decoded = {
 diff --git a/node_modules/jwks-rsa/src/utils.js b/node_modules/jwks-rsa/src/utils.js
 index ef3ffb5..7bbdf42 100644
 --- a/node_modules/jwks-rsa/src/utils.js
