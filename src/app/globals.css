@@ -36,8 +36,10 @@
   --color-exito-50: #eaf6f0;
   --color-advertencia: #b87508;
   --color-advertencia-50: #fbf1e2;
-  --color-error: #c84d5a;
-  --color-error-50: #fbecee;
+  /* Sin rojo en la paleta: el estado de error reutiliza el amarillo
+     institucional (no uno genérico), igual que botones/insignias. */
+  --color-error: var(--color-amarillo-700);
+  --color-error-50: var(--color-amarillo-50);
 
   --background: var(--color-fondo);
   --foreground: var(--color-texto);
@@ -108,9 +110,10 @@ body {
      Nota: Tailwind v4 no permite @apply de una clase propia (ej. "btn-base") dentro de otra,
      así que las utilidades compartidas se repiten en cada variante.
      Primario = lila institucional (acción principal). Secundario = amarillo institucional
-     usado con moderación (acción secundaria, nunca en superficies grandes). Peligroso
-     usa el amarillo funcional de error (--color-error), distinto del amarillo institucional, para
-     que una acción destructiva nunca se confunda con un simple acento de marca. */
+     usado con moderación (acción secundaria, nunca en superficies grandes). Peligroso usa
+     --color-error (también amarillo institucional, tono 700 para más contraste): sin rojo
+     en toda la paleta, pero igual se distingue de los demás botones por ser el único sólido
+     en amarillo-700 (los demás usan lila o amarillo-500/600). */
   .btn-primario {
     @apply inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold transition-colors duration-150 disabled:cursor-not-allowed disabled:opacity-50 aria-busy:cursor-wait aria-busy:opacity-75 bg-lila-600 text-white hover:bg-lila-700 active:bg-lila-800;
   }
