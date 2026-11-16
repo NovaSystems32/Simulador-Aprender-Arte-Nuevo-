@@ -4,6 +4,8 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { exigirPerfil } from "@/lib/auth";
 import {
+  actualizarEvaluacionAutomatica as actualizarEvaluacionAutomaticaDb,
+  actualizarEvaluacionManual as actualizarEvaluacionManualDb,
   asignarCursoFila,
   cambiarEstadoEvaluacionFila,
   crearEvaluacionAutomatica as crearEvaluacionAutomaticaDb,
@@ -69,6 +71,20 @@ function comunParaDb(campos: ReturnType<typeof leerConfiguracionComun>) {
   };
 }
 
+function leerDistribucionAutomatica(formData: FormData): { distribucion: ConfigAutomatica["distribucion"]; total: number } {
+  const ejes = ["numeros_operaciones", "algebra_funciones", "geometria_medida", "estadistica_probabilidad"] as const;
+  const distribucion: ConfigAutomatica["distribucion"] = [];
+  let total = 0;
+  for (const eje of ejes) {
+    const cantidad = Number(formData.get(`cantidad_${eje}`) ?? 0);
+    if (cantidad > 0) {
+      distribucion.push({ eje, cantidad });
+      total += cantidad;
+    }
+  }
+  return { distribucion, total };
+}
+
 export async function crearEvaluacionManual(
   _estadoPrevio: EstadoFormularioEvaluacion,
   formData: FormData
@@ -104,16 +120,7 @@ export async function crearEvaluacionAutomatica(
   const errorComun = validarComun(comun);
   if (errorComun) return { error: errorComun };
 
-  const ejes = ["numeros_operaciones", "algebra_funciones", "geometria_medida", "estadistica_probabilidad"] as const;
-  const distribucion: ConfigAutomatica["distribucion"] = [];
-  let total = 0;
-  for (const eje of ejes) {
-    const cantidad = Number(formData.get(`cantidad_${eje}`) ?? 0);
-    if (cantidad > 0) {
-      distribucion.push({ eje, cantidad });
-      total += cantidad;
-    }
-  }
+  const { distribucion, total } = leerDistribucionAutomatica(formData);
 
   if (total === 0) {
     return { error: "Indicá al menos una pregunta en algún eje para la selección automática." };
@@ -125,6 +132,58 @@ export async function crearEvaluacionAutomatica(
   } catch (err) {
     const detalle = err instanceof Error ? err.message : "error desconocido";
     return { error: `No se pudo crear la evaluación: ${detalle}` };
+  }
+
+  revalidatePath("/docente/evaluaciones");
+  redirect(`/docente/evaluaciones/${evaluacionId}`);
+}
+
+export async function actualizarEvaluacionManual(
+  evaluacionId: string,
+  _estadoPrevio: EstadoFormularioEvaluacion,
+  formData: FormData
+): Promise<EstadoFormularioEvaluacion> {
+  const perfil = await exigirPerfil(["docente", "admin"]);
+  const comun = leerConfiguracionComun(formData);
+  const errorComun = validarComun(comun);
+  if (errorComun) return { error: errorComun };
+
+  const preguntaIds = formData.getAll("pregunta_ids").map(String);
+  if (preguntaIds.length === 0) {
+    return { error: "Seleccioná al menos una pregunta del banco." };
+  }
+
+  try {
+    await actualizarEvaluacionManualDb(perfil.id, evaluacionId, comunParaDb(comun), preguntaIds);
+  } catch (err) {
+    const detalle = err instanceof Error ? err.message : "error desconocido";
+    return { error: `No se pudo guardar la evaluación: ${detalle}` };
+  }
+
+  revalidatePath("/docente/evaluaciones");
+  redirect(`/docente/evaluaciones/${evaluacionId}`);
+}
+
+export async function actualizarEvaluacionAutomatica(
+  evaluacionId: string,
+  _estadoPrevio: EstadoFormularioEvaluacion,
+  formData: FormData
+): Promise<EstadoFormularioEvaluacion> {
+  const perfil = await exigirPerfil(["docente", "admin"]);
+  const comun = leerConfiguracionComun(formData);
+  const errorComun = validarComun(comun);
+  if (errorComun) return { error: errorComun };
+
+  const { distribucion, total } = leerDistribucionAutomatica(formData);
+  if (total === 0) {
+    return { error: "Indicá al menos una pregunta en algún eje para la selección automática." };
+  }
+
+  try {
+    await actualizarEvaluacionAutomaticaDb(perfil.id, evaluacionId, comunParaDb(comun), distribucion, total);
+  } catch (err) {
+    const detalle = err instanceof Error ? err.message : "error desconocido";
+    return { error: `No se pudo guardar la evaluación: ${detalle}` };
   }
 
   revalidatePath("/docente/evaluaciones");

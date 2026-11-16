@@ -1,6 +1,6 @@
 import "server-only";
 import { and, asc, desc, eq, inArray } from "drizzle-orm";
-import { conSesion } from "./contexto";
+import { conSesion, type Tx } from "./contexto";
 import { asignaciones, cursoIntegrantes, cursos, evaluaciones, evaluacionPreguntas, intentos } from "./schema";
 import type { ConfigAutomatica, Evaluacion, EstadoEvaluacion } from "../types";
 
@@ -139,6 +139,122 @@ export async function crearEvaluacionAutomatica(
     await tx.insert(asignaciones).values({ evaluacionId, cursoId: comun.cursoId }).onConflictDoNothing();
 
     return evaluacionId;
+  });
+}
+
+/** Ids de preguntas de una evaluación manual, en el orden guardado (para reabrir un borrador). */
+export async function obtenerPreguntaIdsDeEvaluacion(usuarioActualId: string, evaluacionId: string): Promise<string[]> {
+  return conSesion(usuarioActualId, async (tx) => {
+    const filas = await tx
+      .select({ preguntaId: evaluacionPreguntas.preguntaId })
+      .from(evaluacionPreguntas)
+      .where(eq(evaluacionPreguntas.evaluacionId, evaluacionId))
+      .orderBy(asc(evaluacionPreguntas.orden));
+    return filas.map((f) => f.preguntaId);
+  });
+}
+
+async function exigirBorradorEditable(
+  tx: Tx,
+  evaluacionId: string,
+  tipoEsperado: "manual" | "automatica"
+): Promise<void> {
+  const filas = await tx
+    .select({ estado: evaluaciones.estado, tipo: evaluaciones.tipo })
+    .from(evaluaciones)
+    .where(eq(evaluaciones.id, evaluacionId))
+    .limit(1);
+  const actual = filas[0];
+  if (!actual) throw new Error("La evaluación no existe o no tenés acceso a ella.");
+  if (actual.estado !== "borrador") {
+    throw new Error("Solo se pueden editar evaluaciones en borrador: esta ya fue publicada o archivada.");
+  }
+  if (actual.tipo !== tipoEsperado) {
+    throw new Error("No se puede cambiar el tipo de evaluación (manual/automática) al editarla.");
+  }
+}
+
+/**
+ * Reemplaza configuración común y selección de preguntas de un borrador
+ * manual. Nunca toca evaluaciones publicadas/archivadas (exigirBorradorEditable
+ * frena eso antes de escribir nada).
+ */
+export async function actualizarEvaluacionManual(
+  usuarioActualId: string,
+  evaluacionId: string,
+  comun: DatosEvaluacionComun,
+  preguntaIds: string[]
+): Promise<void> {
+  await conSesion(usuarioActualId, async (tx) => {
+    await exigirBorradorEditable(tx, evaluacionId, "manual");
+
+    await tx
+      .update(evaluaciones)
+      .set({
+        nombre: comun.nombre,
+        descripcion: comun.descripcion,
+        cursoId: comun.cursoId,
+        fechaApertura: comun.fechaApertura,
+        fechaCierre: comun.fechaCierre,
+        duracionMinutos: comun.duracionMinutos,
+        cantidadPreguntas: preguntaIds.length,
+        ordenAleatorioPreguntas: comun.ordenAleatorioPreguntas,
+        ordenAleatorioOpciones: comun.ordenAleatorioOpciones,
+        intentosMax: comun.intentosMax,
+        puntajeAprobacion: String(comun.puntajeAprobacion),
+        mostrarResultadoInmediato: comun.mostrarResultadoInmediato,
+        permitirRevision: comun.permitirRevision,
+        mostrarResoluciones: comun.mostrarResoluciones,
+        permitirCalculadora: comun.permitirCalculadora,
+        permitirHojaFormulas: comun.permitirHojaFormulas,
+        descuentoPorIncorrecta: comun.descuentoPorIncorrecta,
+      })
+      .where(eq(evaluaciones.id, evaluacionId));
+
+    await tx.delete(evaluacionPreguntas).where(eq(evaluacionPreguntas.evaluacionId, evaluacionId));
+    await tx.insert(evaluacionPreguntas).values(
+      preguntaIds.map((preguntaId, indice) => ({ evaluacionId, preguntaId, orden: indice + 1 }))
+    );
+
+    await tx.insert(asignaciones).values({ evaluacionId, cursoId: comun.cursoId }).onConflictDoNothing();
+  });
+}
+
+export async function actualizarEvaluacionAutomatica(
+  usuarioActualId: string,
+  evaluacionId: string,
+  comun: DatosEvaluacionComun,
+  distribucion: ConfigAutomatica["distribucion"],
+  totalPreguntas: number
+): Promise<void> {
+  await conSesion(usuarioActualId, async (tx) => {
+    await exigirBorradorEditable(tx, evaluacionId, "automatica");
+
+    await tx
+      .update(evaluaciones)
+      .set({
+        nombre: comun.nombre,
+        descripcion: comun.descripcion,
+        cursoId: comun.cursoId,
+        fechaApertura: comun.fechaApertura,
+        fechaCierre: comun.fechaCierre,
+        duracionMinutos: comun.duracionMinutos,
+        cantidadPreguntas: totalPreguntas,
+        ordenAleatorioPreguntas: comun.ordenAleatorioPreguntas,
+        ordenAleatorioOpciones: comun.ordenAleatorioOpciones,
+        intentosMax: comun.intentosMax,
+        puntajeAprobacion: String(comun.puntajeAprobacion),
+        mostrarResultadoInmediato: comun.mostrarResultadoInmediato,
+        permitirRevision: comun.permitirRevision,
+        mostrarResoluciones: comun.mostrarResoluciones,
+        permitirCalculadora: comun.permitirCalculadora,
+        permitirHojaFormulas: comun.permitirHojaFormulas,
+        descuentoPorIncorrecta: comun.descuentoPorIncorrecta,
+        configAutomatica: { distribucion },
+      })
+      .where(eq(evaluaciones.id, evaluacionId));
+
+    await tx.insert(asignaciones).values({ evaluacionId, cursoId: comun.cursoId }).onConflictDoNothing();
   });
 }
 

@@ -1,5 +1,5 @@
 import "server-only";
-import { and, asc, desc, eq, ilike, or, sql } from "drizzle-orm";
+import { and, asc, desc, eq, ilike, inArray, or, sql } from "drizzle-orm";
 import { conSesion, type Tx } from "./contexto";
 import { preguntas } from "./schema";
 import type { CapacidadEvaluada, EjeMatematico, EstadoPregunta, NivelDificultad, Pregunta } from "../types";
@@ -61,6 +61,21 @@ export async function listarPreguntas(usuarioActualId: string, filtros: FiltrosP
       .from(preguntas)
       .where(condiciones.length > 0 ? and(...condiciones) : undefined)
       .orderBy(filtros.ordenarPor === "codigo" ? asc(preguntas.codigo) : desc(preguntas.createdAt));
+    return filas.map(preguntaDesdeFila);
+  });
+}
+
+/**
+ * Trae preguntas puntuales por id, sin filtrar por estado: se usa para
+ * reabrir un borrador de evaluación manual y mostrar sus preguntas elegidas
+ * aunque alguna haya pasado a "archivada" (o "borrador") desde que se
+ * agregó — el banco para elegir NUEVAS preguntas sigue restringido a
+ * "activa" en listarPreguntas, esto es solo para no perder lo ya elegido.
+ */
+export async function listarPreguntasPorIds(usuarioActualId: string, ids: string[]): Promise<Pregunta[]> {
+  if (ids.length === 0) return [];
+  return conSesion(usuarioActualId, async (tx) => {
+    const filas = await tx.select().from(preguntas).where(inArray(preguntas.id, ids));
     return filas.map(preguntaDesdeFila);
   });
 }

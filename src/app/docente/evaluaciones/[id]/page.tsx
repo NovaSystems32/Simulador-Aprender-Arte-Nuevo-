@@ -25,7 +25,17 @@ export default async function PaginaDetalleEvaluacion({
           <h1 className="text-2xl font-bold text-lila-800">{ev.nombre}</h1>
           {ev.descripcion && <p className="mt-1 text-slate-600">{ev.descripcion}</p>}
         </div>
-        <BotonesEstado evaluacionId={ev.id} estadoActual={ev.estado} />
+        <div className="flex shrink-0 items-center gap-3">
+          {ev.estado === "borrador" && (
+            <Link
+              href={`/docente/evaluaciones/${ev.id}/editar`}
+              className="rounded-lg border border-lila-600 px-4 py-2 text-sm font-semibold text-lila-600 hover:bg-lila-50"
+            >
+              Editar
+            </Link>
+          )}
+          <BotonesEstado evaluacionId={ev.id} estadoActual={ev.estado} />
+        </div>
       </div>
 
       <div className="grid grid-cols-2 gap-4 rounded-xl border border-slate-200 bg-white p-5 sm:grid-cols-4">
